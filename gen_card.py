@@ -90,7 +90,7 @@ s1 = " " * (len(left) + 1)
 s2 = " " * (len(left) + 7)
 
 card = "\n".join([
-    s1 + f"@+{fmt(add)} all time / -{fmt(dele)} · {commits} commits",
+    s1 + f"@ +{fmt(add)} all time / -{fmt(dele)} · {commits} commits",
     s1 + "^",
     s1 + "|",
     left + " *---> " + f"{fmt(loc)} lines of code ---> {top_lang}",
