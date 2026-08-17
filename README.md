@@ -11,8 +11,15 @@
                           \           \                           Shell          Python
                            \           *-----*   [feat]           Stars          0
                             \                                     Followers      2
-                             *-----*   [fix]                      Contributions  0
-                                    \                             Streak         0d
+                             *-----*   [fix]                      Contributions  70
+                                    \                             Streak         3d (best 3d)
                                       *   [hotfix]
+
+ Activity               ▃▅▇█
+ Languages  Python ████████ 3  Rust ███ 1
+ Pushes
+   * yoxiko:  (today)
+   * yoxiko:  (today)
+   * yoxiko:  (today)
 ```
 <!-- card:end -->
