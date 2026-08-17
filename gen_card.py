@@ -1,54 +1,81 @@
 import json, os, sys, urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 
 LOGIN = sys.argv[1]
 TOKEN = os.environ.get("GITHUB_TOKEN", "")
+HDR = {"User-Agent": "ascii-card", **({"Authorization": f"token {TOKEN}"} if TOKEN else {})}
 
 def get(url):
-    req = urllib.request.Request(url, headers={
-        "Authorization": f"token {TOKEN}" if TOKEN else "",
-        "User-Agent": "ascii-card"})
-    with urllib.request.urlopen(req) as r:
+    with urllib.request.urlopen(urllib.request.Request(url, headers=HDR)) as r:
         return json.load(r)
 
 def gql(query, variables):
     req = urllib.request.Request(
         "https://api.github.com/graphql",
         data=json.dumps({"query": query, "variables": variables}).encode(),
-        headers={"Authorization": f"bearer {TOKEN}",
-                 "Content-Type": "application/json",
-                 "User-Agent": "ascii-card"},
-        method="POST")
+        headers={**HDR, "Authorization": f"bearer {TOKEN}",
+                 "Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(req) as r:
         return json.load(r)
 
-user = get(f"https://api.github.com/users/{LOGIN}")
+def ago(iso):
+    d = (datetime.now(timezone.utc) - datetime.fromisoformat(iso.replace("Z", "+00:00"))).days
+    return f"{d}d" if d > 0 else "today"
 
-stars, langs = 0, {}
-for r in get(f"https://api.github.com/users/{LOGIN}/repos?per_page=100"):
-    stars += r["stargazers_count"]
+# --- данные; если API лежит, старую карточку не трогаем
+try:
+    user  = get(f"https://api.github.com/users/{LOGIN}")
+    repos = get(f"https://api.github.com/users/{LOGIN}/repos?per_page=100&sort=updated")
+except Exception as e:
+    print("API unavailable, keeping old card:", e); sys.exit(0)
+
+stars = sum(r["stargazers_count"] for r in repos)
+langs = {}
+for r in repos:
     if r.get("language"):
         langs[r["language"]] = langs.get(r["language"], 0) + 1
-shell = max(langs, key=langs.get) if langs else "bash"
+top = sorted(langs.items(), key=lambda kv: -kv[1])[:3]
+shell = top[0][0] if top else "bash"
 
-contribs = streak = 0
+contribs = cur = best = 0
+weeks = []
 try:
-    data = gql("""query($login:String!){user(login:$login){
-        contributionsCollection{contributionCalendar{
-        totalContributions weeks{contributionDays{contributionCount}}}}}""",
-        {"login": LOGIN})
+    data = gql("""query($l:String!){user(login:$l){contributionsCollection{
+        contributionCalendar{totalContributions
+        weeks{contributionDays{contributionCount}}}}}}""", {"l": LOGIN})
     cal = data["data"]["user"]["contributionsCollection"]["contributionCalendar"]
     contribs = cal["totalContributions"]
+    weeks = [sum(d["contributionCount"] for d in w["contributionDays"]) for w in cal["weeks"]]
     days = [d["contributionCount"] for w in cal["weeks"] for d in w["contributionDays"]]
-    if days and days[-1] == 0:
-        days.pop() 
+    if days and days[-1] == 0: days.pop()
     for c in days:
-        streak = streak + 1 if c > 0 else 0
+        cur = cur + 1 if c > 0 else 0
+        best = max(best, cur)
+except Exception as e:
+    print("no graphql:", e)
+
+try:
+    events = [e for e in get(f"https://api.github.com/users/{LOGIN}/events/public")
+              if e["type"] == "PushEvent"][:3]
 except Exception:
-    pass
+    events = []
+
+def spark(vals):
+    chars = " ▁▂▃▄▅▆▇█"
+    hi = max(vals, default=0) or 1
+    return "".join(chars[min(v * 8 // hi, 8)] for v in vals)
+
+mx = top[0][1] if top else 1
+langline = "  ".join(f"{n} {'█' * max(1, round(c * 8 / mx))} {c}" for n, c in top)
+
+pushlines = []
+for e in events:
+    cs = e["payload"].get("commits") or [{}]
+    msg = (cs[-1].get("message") or "").split("\n")[0][:48]
+    pushlines.append(f"   * {e['repo']['name'].split('/')[-1]}: {msg} ({ago(e['created_at'])})")
 
 created = datetime.fromisoformat(user["created_at"].replace("Z", "+00:00"))
-years = max((datetime.now(created.tzinfo) - created).days // 365, 1)
+years = max((datetime.now(timezone.utc) - created).days // 365, 1)
 
 info = [
     f"{LOGIN}@github", "-" * 30,
@@ -59,7 +86,7 @@ info = [
     f"{'Stars':<14} {stars}",
     f"{'Followers':<14} {user['followers']}",
     f"{'Contributions':<14} {contribs}",
-    f"{'Streak':<14} {streak}d",
+    f"{'Streak':<14} {cur}d (best {best}d)",
 ]
 
 tree = [
@@ -84,6 +111,9 @@ def line(left, right=""):
 card = [f" * {LOGIN}@github", ""]
 for i, t in enumerate(tree):
     card.append(line(t, info[i - 1] if 0 <= i - 1 < len(info) else ""))
+card += ["", f" Activity   {spark(weeks[-16:])}"]
+if top:        card.append(f" Languages  {langline}")
+if pushlines:  card += [" Pushes"] + pushlines
 card = "\n".join(card)
 
 text = open("README.md", encoding="utf-8").read()
