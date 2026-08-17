@@ -1,4 +1,4 @@
-import json, os, sys, time, urllib.request
+import json, os, sys, subprocess, tempfile, urllib.request
 from datetime import datetime, timezone
 
 LOGIN = sys.argv[1]
@@ -9,13 +9,8 @@ def get(url):
     with urllib.request.urlopen(urllib.request.Request(url, headers=HDR)) as r:
         return json.load(r)
 
-def get2(url, tries=2):
-    for _ in range(tries):
-        try:
-            return get(url)
-        except Exception:
-            time.sleep(2)
-    return None
+def run(cmd, cwd=None):
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
 
 def fmt(n):
     return f"{max(n, 0):,}".replace(",", " ")
@@ -26,23 +21,46 @@ try:
 except Exception as e:
     print("API unavailable, keeping old card:", e); sys.exit(0)
 
-add = dele = 0
+loc = add = dele = commits = 0
+for r in repos:
+    with tempfile.TemporaryDirectory() as td:
+        rd = os.path.join(td, r["name"])
+        if run(["git", "clone", "-q",
+                f"https://github.com/{LOGIN}/{r['name']}.git", rd]).returncode != 0:
+            continue
+        # текущие строки кода
+        for p in run(["git", "ls-files", "-z"], cwd=rd).stdout.split("\0"):
+            if not p:
+                continue
+            try:
+                with open(os.path.join(rd, p), "rb") as f:
+                    data = f.read()
+            except OSError:
+                continue
+            if b"\0" in data[:8000]:      # бинарник
+                continue
+            loc += data.count(b"\n") + (1 if data and not data.endswith(b"\n") else 0)
+        # +/- за всю историю
+        for line in run(["git", "log", "--no-merges", "--pretty=tformat:",
+                         "--numstat"], cwd=rd).stdout.splitlines():
+            parts = line.split("\t")
+            if len(parts) >= 2 and parts[0].isdigit():
+                add += int(parts[0]); dele += int(parts[1])
+        c = run(["git", "rev-list", "--count", "HEAD"], cwd=rd).stdout.strip()
+        commits += int(c) if c.isdigit() else 0
+
 lang_bytes = {}
 for r in repos:
-    base = f"https://api.github.com/repos/{LOGIN}/{r['name']}"
-    cf = get2(f"{base}/stats/code_frequency")
-    if isinstance(cf, list):
-        for _, a, d in cf:
-            add += a; dele -= d
-    for k, v in (get2(f"{base}/languages") or {}).items():
-        lang_bytes[k] = lang_bytes.get(k, 0) + v
-
-net = add - dele
-stars = sum(r["stargazers_count"] for r in repos)
+    try:
+        for k, v in get(f"https://api.github.com/repos/{LOGIN}/{r['name']}/languages").items():
+            lang_bytes[k] = lang_bytes.get(k, 0) + v
+    except Exception:
+        pass
 total_b = sum(lang_bytes.values()) or 1
 top = sorted(lang_bytes.items(), key=lambda kv: -kv[1])[:3]
 top_lang = top[0][0].lower() if top else "no code"
 lang_str = " · ".join(f"{k.lower()} {round(v * 100 / total_b)}%" for k, v in top) or "no code yet"
+stars = sum(r["stargazers_count"] for r in repos)
 
 contribs = cur = 0
 try:
@@ -68,14 +86,14 @@ created = datetime.fromisoformat(user["created_at"].replace("Z", "+00:00"))
 years = max((datetime.now(timezone.utc) - created).days // 365, 1)
 
 left = f"{LOGIN}@github"
-s1 = " " * (len(left) + 1)   
-s2 = " " * (len(left) + 7)  
+s1 = " " * (len(left) + 1)
+s2 = " " * (len(left) + 7)
 
 card = "\n".join([
-    s1 + f"@+{fmt(add)} all time / -{fmt(dele)}",
+    s1 + f"@+{fmt(add)} all time / -{fmt(dele)} · {commits} commits",
     s1 + "^",
     s1 + "|",
-    left + " *---> " + f"{fmt(net)} lines of code ---> {top_lang}",
+    left + " *---> " + f"{fmt(loc)} lines of code ---> {top_lang}",
     s2 + "|",
     s2 + "*-----> " + lang_str,
     s1 + "|",
