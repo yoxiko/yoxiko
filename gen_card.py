@@ -22,7 +22,6 @@ def ago(iso):
     d = (datetime.now(timezone.utc) - datetime.fromisoformat(iso.replace("Z", "+00:00"))).days
     return f"{d}d" if d > 0 else "today"
 
-# --- данные; если API лежит, старую карточку не трогаем
 try:
     user  = get(f"https://api.github.com/users/{LOGIN}")
     repos = get(f"https://api.github.com/users/{LOGIN}/repos?per_page=100&sort=updated")
