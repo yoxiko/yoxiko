@@ -1,1 +1,1 @@
-![@yoxiko's GitHub Stats](https://devquest-mu.vercel.app/card/yoxiko.svg?template=neofetch&style=glass&theme=tokyonight&ascii=3&title=t.me%2Fwaveward&stats=repos%2Cfollowers%2Cstars%2Ccontributions%2Cstreak%2Cprs)
+ 
