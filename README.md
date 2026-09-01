@@ -1,14 +1,14 @@
 <!-- card:start -->
 ```
-              @ +19 794 all time / -10 523 · 137 commits
+              @ +18 447 all time / -10 398 · 128 commits
               ^
               |
-yoxiko@github *---> 9 271 lines of code ---> rust
+yoxiko@github *---> 8 049 lines of code ---> rust
                     |
-                    *-----> rust 84% · python 15% · batchfile 1%
+                    *-----> rust 96% · python 3% · batchfile 1%
               |
-              *-----> 5 repos · 2 followers · 1 stars
+              *-----> 3 repos · 2 followers · 1 stars
               |
-              `-----> 79 contributions · 0d streak · 1y uptime
+              `-----> 67 contributions · 0d streak · 1y uptime
 ```
 <!-- card:end -->
