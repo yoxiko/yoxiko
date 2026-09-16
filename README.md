@@ -1,6 +1,6 @@
 <!-- card:start -->
 ```
-              @ +18 508 all time / -10 459 · 185 commits
+              @ +18 509 all time / -10 460 · 186 commits
               ^
               |
 yoxiko@github *---> 8 049 lines of code ---> rust
@@ -9,6 +9,6 @@ yoxiko@github *---> 8 049 lines of code ---> rust
               |
               *-----> 3 repos · 2 followers · 1 stars
               |
-              `-----> 67 contributions · 0d streak · 1y uptime
+              `-----> 67 contributions · 0d streak · 2y uptime
 ```
 <!-- card:end -->
